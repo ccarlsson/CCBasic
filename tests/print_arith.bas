@@ -1,0 +1,3 @@
+10 LET A = 40 + 2
+20 PRINT A
+30 END

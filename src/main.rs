@@ -8,9 +8,12 @@ mod parser;
 mod semantic;
 
 use std::env;
+use std::ffi::OsStr;
 use std::ffi::OsString;
+use std::fs;
 use std::path::PathBuf;
 use std::process;
+use std::process::Command;
 
 use error::{CompilerError, CompilerResult};
 
@@ -190,8 +193,91 @@ impl CliOptions {
 }
 
 fn run() -> CompilerResult<()> {
-    let _resolved = CliOptions::parse_from(env::args().skip(1))?.resolve()?;
+    let resolved = CliOptions::parse_from(env::args().skip(1))?.resolve()?;
+    let source = fs::read_to_string(&resolved.input)?;
+
+    let program = parser::parse_source(&source)?;
+    semantic::analyze(&program)?;
+    let assembly = codegen::x86_64::generate_assembly(&program)?;
+
+    let (asm_path, asm_temporary) = match &resolved.asm_artifact {
+        AsmArtifact::Temporary(path) => (path.clone(), true),
+        AsmArtifact::Persisted(path) => (path.clone(), false),
+    };
+
+    fs::write(&asm_path, assembly)?;
+
+    if !matches!(resolved.mode, BuildMode::EmitAsmOnly) {
+        let executable = resolved.executable_out.ok_or_else(|| {
+            CompilerError::Codegen("Missing executable output path".to_string())
+        })?;
+        let object_path = with_suffix(&executable, ".mbasicr.tmp.o");
+
+        run_command(
+            "nasm",
+            &[
+                OsStr::new("-felf64"),
+                asm_path.as_os_str(),
+                OsStr::new("-o"),
+                object_path.as_os_str(),
+            ],
+            "nasm",
+        )?;
+        run_command(
+            "ld",
+            &[object_path.as_os_str(), OsStr::new("-o"), executable.as_os_str()],
+            "ld",
+        )?;
+
+        let _ = fs::remove_file(&object_path);
+    }
+
+    if asm_temporary {
+        let _ = fs::remove_file(&asm_path);
+    }
+
     Ok(())
+}
+
+fn with_suffix(path: &PathBuf, suffix: &str) -> PathBuf {
+    let mut value = path.as_os_str().to_owned();
+    value.push(suffix);
+    PathBuf::from(value)
+}
+
+fn run_command(program: &str, args: &[&OsStr], display_name: &str) -> CompilerResult<()> {
+    let output = Command::new(program).args(args).output().map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            CompilerError::Codegen(format!(
+                "Required tool '{}' is not installed or not on PATH",
+                display_name
+            ))
+        } else {
+            CompilerError::Io(error)
+        }
+    })?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let details = if stderr.trim().is_empty() {
+        stdout.trim().to_string()
+    } else {
+        stderr.trim().to_string()
+    };
+
+    Err(CompilerError::Codegen(format!(
+        "{} failed: {}",
+        display_name,
+        if details.is_empty() {
+            "unknown error"
+        } else {
+            &details
+        }
+    )))
 }
 
 fn main() {

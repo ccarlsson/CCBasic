@@ -1,0 +1,3 @@
+10 LET A = 7
+20 PRINT A, 8, 9
+30 END

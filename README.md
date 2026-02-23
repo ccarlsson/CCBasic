@@ -1,0 +1,77 @@
+# MBASIC-R Compiler
+
+MBASIC-R is a Rust compiler for a restricted Microsoft BASIC subset that targets Linux x86_64.
+It compiles line-numbered `.bas` programs into NASM-compatible assembly and optionally into runnable ELF executables.
+
+## Project Layout
+
+- `src/main.rs` - CLI and compile pipeline orchestration
+- `src/lexer.rs` - lexical analysis
+- `src/parser.rs` - parser + AST construction
+- `src/ast.rs` - AST definitions
+- `src/semantic.rs` - semantic checks and definite-assignment analysis
+- `src/codegen/x86_64.rs` - NASM x86_64 code generation
+- `tests/` - BASIC fixtures and integration tests
+
+## Prerequisites
+
+- Rust toolchain (`cargo`, `rustc`)
+- Linux x86_64
+- `nasm` and `ld` available on `PATH` for executable generation and e2e tests
+
+## Build
+
+```bash
+cargo build
+```
+
+## Run
+
+### Emit assembly only
+
+```bash
+cargo run -- program.bas --emit-asm-only --asm-out program.asm
+```
+
+### Build executable (default mode)
+
+```bash
+cargo run -- program.bas -o program
+./program
+```
+
+### Build executable and keep emitted assembly
+
+```bash
+cargo run -- program.bas --emit-asm --asm-out program.asm -o program
+```
+
+## CLI
+
+```text
+mbasicr <input.bas> [-o <out>] [--emit-asm] [--emit-asm-only] [--asm-out <file.asm>] [--keep-asm]
+```
+
+Behavior summary:
+- Default: builds ELF executable (`nasm` + `ld`) and uses a temporary `.asm`.
+- `--emit-asm-only`: writes assembly only (no link step).
+- `--emit-asm`: builds ELF and also persists assembly output.
+- `--keep-asm`: valid with default ELF mode to keep generated `.asm`.
+
+## Tests
+
+### Unit + integration
+
+```bash
+cargo test
+```
+
+This runs:
+- lexer, parser, semantic, and codegen unit tests
+- `tests/e2e.rs` integration test that performs compile → assemble → link → execute and validates stdout against fixture outputs
+
+### Included BASIC fixtures
+
+- `tests/print_arith.bas` → `tests/print_arith.out`
+- `tests/if_goto.bas` → `tests/if_goto.out`
+- `tests/print_multi.bas` → `tests/print_multi.out`
