@@ -1,5 +1,7 @@
 ## Plan: MBASIC-R v0.1 Implementation (Scaffold → Compile → Run)
 
+**Status (2026-02-23):** Steps 1 through 7 are implemented and validated (`cargo test` passes, including e2e compile → assemble → run checks).
+
 This repo currently has only the SRS and Copilot instructions, so the first milestone is scaffolding a Cargo/Rust compiler project that matches the required module layout, then implementing lexer → parser/AST → semantic analysis → NASM x86_64 codegen, plus unit tests and an end-to-end harness that compiles `.bas` → assembles/links → runs → checks stdout. Decisions already locked in: emit `.asm` and optionally build an ELF; `PRINT` joins items with one space and ends with newline; `REM` ignores rest of line; integer division truncates toward zero.
 
 Save this plan as: [docs/MBASIC-R_Implementation_Plan.md](docs/MBASIC-R_Implementation_Plan.md)

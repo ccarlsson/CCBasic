@@ -1,1 +1,6 @@
 /target
+/tests/*.asm
+/tests/*.o
+/tests/print_arith
+/tests/if_goto
+/tests/print_multi
