@@ -53,6 +53,7 @@ mbasicr <input.bas> [-o <out>] [--emit-asm] [--emit-asm-only] [--asm-out <file.a
 ```
 
 Behavior summary:
+
 - Default: builds ELF executable (`nasm` + `ld`) and uses a temporary `.asm`.
 - `--emit-asm-only`: writes assembly only (no link step).
 - `--emit-asm`: builds ELF and also persists assembly output.
@@ -67,6 +68,7 @@ cargo test
 ```
 
 This runs:
+
 - lexer, parser, semantic, and codegen unit tests
 - `tests/e2e.rs` integration test that performs compile → assemble → link → execute and validates stdout against fixture outputs
 
