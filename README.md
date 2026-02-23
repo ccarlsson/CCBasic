@@ -3,6 +3,11 @@
 MBASIC-R is a Rust compiler for a restricted Microsoft BASIC subset that targets Linux x86_64.
 It compiles line-numbered `.bas` programs into NASM-compatible assembly and optionally into runnable ELF executables.
 
+## Disclaimer
+
+This repository is a personal learning project for studying compiler construction and Rust.
+It is built for educational purposes and experimentation, not for production use.
+
 ## Project Layout
 
 - `src/main.rs` - CLI and compile pipeline orchestration
