@@ -12,7 +12,15 @@ fn compile_assemble_run_examples() {
     }
 
     let compiler = PathBuf::from(env!("CARGO_BIN_EXE_mbasicr"));
-    let fixtures = ["print_arith", "if_goto", "print_multi"];
+    let fixtures = [
+        "print_arith",
+        "if_goto",
+        "print_multi",
+        "print_string",
+        "concat",
+        "input_int",
+        "input_str",
+    ];
 
     for fixture in fixtures {
         run_fixture(&compiler, fixture).unwrap_or_else(|error| {
@@ -25,8 +33,17 @@ fn run_fixture(compiler: &Path, fixture: &str) -> Result<(), String> {
     let tests_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
     let bas_path = tests_dir.join(format!("{fixture}.bas"));
     let expected_path = tests_dir.join(format!("{fixture}.out"));
+    let input_path = tests_dir.join(format!("{fixture}.in"));
     let expected = fs::read_to_string(&expected_path)
         .map_err(|error| format!("failed reading expected output: {error}"))?;
+    let stdin_data = if input_path.exists() {
+        Some(
+            fs::read(&input_path)
+                .map_err(|error| format!("failed reading stdin fixture: {error}"))?,
+        )
+    } else {
+        None
+    };
 
     let stamp = unique_stamp();
     let scratch_dir = env::temp_dir().join(format!("mbasicr_e2e_{fixture}_{stamp}"));
@@ -60,11 +77,28 @@ fn run_fixture(compiler: &Path, fixture: &str) -> Result<(), String> {
         "ld invocation",
     )?;
 
-    let output = Command::new(&exe_path)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
+    let mut run_command = Command::new(&exe_path);
+    run_command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    if stdin_data.is_some() {
+        run_command.stdin(Stdio::piped());
+    }
+
+    let mut child = run_command
+        .spawn()
         .map_err(|error| format!("failed running produced executable: {error}"))?;
+
+    if let Some(input) = stdin_data {
+        use std::io::Write;
+        if let Some(stdin) = child.stdin.as_mut() {
+            stdin
+                .write_all(&input)
+                .map_err(|error| format!("failed writing stdin fixture: {error}"))?;
+        }
+    }
+
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("failed waiting on produced executable: {error}"))?;
 
     if !output.status.success() {
         return Err(format!(

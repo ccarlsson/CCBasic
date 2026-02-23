@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::ast::{BinaryOp, ComparisonOp, Expr, Program, Statement, Variable};
+use crate::ast::{BinaryOp, ComparisonOp, Expr, Program, Statement, StrVariable, Variable};
 use crate::error::{CompilerError, CompilerResult};
 use crate::lexer::{tokenize, Span, Token, TokenKind};
 
@@ -61,6 +61,7 @@ impl Parser {
 		match self.peek_kind() {
 			TokenKind::Let => self.parse_let_statement(),
 			TokenKind::Print => self.parse_print_statement(),
+			TokenKind::Input => self.parse_input_statement(),
 			TokenKind::Goto => self.parse_goto_statement(),
 			TokenKind::If => self.parse_if_statement(),
 			TokenKind::End => {
@@ -80,10 +81,21 @@ impl Parser {
 
 	fn parse_let_statement(&mut self) -> CompilerResult<Statement> {
 		self.expect_token(TokenKind::Let)?;
-		let var = self.parse_variable()?;
+		let target = self.parse_assignable_variable()?;
 		self.expect_token(TokenKind::Eq)?;
 		let expr = self.parse_expression()?;
-		Ok(Statement::Let { var, expr })
+		match target {
+			AssignableVariable::Int(var) => Ok(Statement::Let { var, expr }),
+			AssignableVariable::Str(var) => Ok(Statement::LetStr { var, expr }),
+		}
+	}
+
+	fn parse_input_statement(&mut self) -> CompilerResult<Statement> {
+		self.expect_token(TokenKind::Input)?;
+		match self.parse_assignable_variable()? {
+			AssignableVariable::Int(var) => Ok(Statement::InputInt { var }),
+			AssignableVariable::Str(var) => Ok(Statement::InputStr { var }),
+		}
 	}
 
 	fn parse_print_statement(&mut self) -> CompilerResult<Statement> {
@@ -150,11 +162,12 @@ impl Parser {
 		}
 	}
 
-	fn parse_variable(&mut self) -> CompilerResult<Variable> {
+	fn parse_assignable_variable(&mut self) -> CompilerResult<AssignableVariable> {
 		match self.next_kind() {
-			TokenKind::Variable(value) => Ok(value),
+			TokenKind::Variable(value) => Ok(AssignableVariable::Int(value)),
+			TokenKind::StrVariable(value) => Ok(AssignableVariable::Str(value)),
 			other => Err(self.error_current(format!(
-				"Expected variable A-Z, found {:?}",
+				"Expected variable A-Z or A$-Z$, found {:?}",
 				other
 			))),
 		}
@@ -225,6 +238,8 @@ impl Parser {
 		match self.next_kind() {
 			TokenKind::Integer(value) => Ok(Expr::Int(value)),
 			TokenKind::Variable(value) => Ok(Expr::Var(value)),
+			TokenKind::StringLiteral(value) => Ok(Expr::StrLit(value)),
+			TokenKind::StrVariable(value) => Ok(Expr::StrVar(value)),
 			TokenKind::LParen => {
 				let expr = self.parse_expression()?;
 				self.expect_token(TokenKind::RParen)?;
@@ -316,9 +331,14 @@ impl Parser {
 	}
 }
 
+enum AssignableVariable {
+	Int(Variable),
+	Str(StrVariable),
+}
+
 #[cfg(test)]
 mod tests {
-	use crate::ast::{BinaryOp, Expr, Statement, Variable};
+	use crate::ast::{BinaryOp, Expr, Statement, StrVariable, Variable};
 	use crate::parser::parse_source;
 
 	#[test]
@@ -371,5 +391,23 @@ mod tests {
 		assert!(result.is_err());
 		let message = format!("{}", result.expect_err("should fail"));
 		assert!(message.contains("Duplicate line number 10"));
+	}
+
+	#[test]
+	fn parses_string_assignment_and_input() {
+		let program = parse_source("10 LET A$ = \"HI\"\n20 INPUT B$\n30 END\n")
+			.expect("parse should pass");
+
+		let stmt10 = program.lines.get(&10).expect("line 10 expected");
+		assert_eq!(
+			stmt10,
+			&Statement::LetStr {
+				var: StrVariable(0),
+				expr: Expr::StrLit("HI".to_string()),
+			}
+		);
+
+		let stmt20 = program.lines.get(&20).expect("line 20 expected");
+		assert_eq!(stmt20, &Statement::InputStr { var: StrVariable(1) });
 	}
 }

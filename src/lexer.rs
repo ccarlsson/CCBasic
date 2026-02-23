@@ -1,4 +1,4 @@
-use crate::ast::Variable;
+use crate::ast::{StrVariable, Variable};
 use crate::error::{CompilerError, CompilerResult};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,9 +17,12 @@ pub struct Span {
 pub enum TokenKind {
 	LineNumber(u32),
 	Integer(i64),
+	StringLiteral(String),
 	Variable(Variable),
+	StrVariable(StrVariable),
 	Let,
 	Print,
+	Input,
 	Goto,
 	If,
 	Then,
@@ -95,6 +98,10 @@ impl Lexer {
 				}
 				'0'..='9' => {
 					tokens.push(self.lex_number()?);
+					self.at_line_start = false;
+				}
+				'"' => {
+					tokens.push(self.lex_string_literal()?);
 					self.at_line_start = false;
 				}
 				'A'..='Z' | 'a'..='z' => {
@@ -243,12 +250,63 @@ impl Lexer {
 		})
 	}
 
+	fn lex_string_literal(&mut self) -> CompilerResult<Token> {
+		let (_, start_quote) = self.advance().expect("opening quote must advance");
+		let mut value = String::new();
+
+		while let Some(ch) = self.peek() {
+			if ch == '"' {
+				let (_, end) = self.advance().expect("closing quote must advance");
+				return Ok(Token {
+					kind: TokenKind::StringLiteral(value),
+					span: Span {
+						start: start_quote,
+						end,
+					},
+				});
+			}
+
+			if ch == '\n' || ch == '\r' {
+				return Err(CompilerError::Lex(format!(
+					"Unterminated string literal at {}:{}",
+					start_quote.line, start_quote.column
+				)));
+			}
+
+			let (content, _) = self.advance().expect("peeked character must advance");
+			value.push(content);
+		}
+
+		Err(CompilerError::Lex(format!(
+			"Unterminated string literal at {}:{}",
+			start_quote.line, start_quote.column
+		)))
+	}
+
 	fn lex_word(&mut self) -> CompilerResult<Token> {
-		let (text, start, end) = self.consume_while(|value| value.is_ascii_alphanumeric());
+		let (text, start, mut end) = self.consume_while(|value| value.is_ascii_alphanumeric());
 		let upper = text.to_ascii_uppercase();
+
+		if upper.len() == 1 && self.peek() == Some('$') {
+			let (_, dollar_pos) = self.advance().expect("peeked '$' must advance");
+			end = dollar_pos;
+			let variable = StrVariable::from_ascii_letter(upper.chars().next().unwrap())
+				.ok_or_else(|| {
+					CompilerError::Lex(format!(
+						"Invalid string variable '{}$' at {}:{}",
+						text, start.line, start.column
+					))
+				})?;
+			return Ok(Token {
+				kind: TokenKind::StrVariable(variable),
+				span: Span { start, end },
+			});
+		}
+
 		let kind = match upper.as_str() {
 			"LET" => TokenKind::Let,
 			"PRINT" => TokenKind::Print,
+			"INPUT" => TokenKind::Input,
 			"GOTO" => TokenKind::Goto,
 			"IF" => TokenKind::If,
 			"THEN" => TokenKind::Then,
@@ -344,7 +402,7 @@ impl Lexer {
 #[cfg(test)]
 mod tests {
 	use super::{tokenize, TokenKind};
-	use crate::ast::Variable;
+	use crate::ast::{StrVariable, Variable};
 
 	fn kinds(source: &str) -> Vec<TokenKind> {
 		tokenize(source)
@@ -417,6 +475,27 @@ mod tests {
 				TokenKind::LineNumber(20),
 				TokenKind::Print,
 				TokenKind::Variable(Variable(0)),
+				TokenKind::Newline,
+				TokenKind::Eof,
+			]
+		);
+	}
+
+	#[test]
+	fn tokenizes_string_literals_and_string_variables() {
+		let values = kinds("10 LET A$ = \"HELLO\"\n20 INPUT B$\n");
+		assert_eq!(
+			values,
+			vec![
+				TokenKind::LineNumber(10),
+				TokenKind::Let,
+				TokenKind::StrVariable(StrVariable(0)),
+				TokenKind::Eq,
+				TokenKind::StringLiteral("HELLO".to_string()),
+				TokenKind::Newline,
+				TokenKind::LineNumber(20),
+				TokenKind::Input,
+				TokenKind::StrVariable(StrVariable(1)),
 				TokenKind::Newline,
 				TokenKind::Eof,
 			]
