@@ -67,15 +67,15 @@ Behavior summary:
 ## Language Notes (Current)
 
 - Variables:
-	- Integer: `A`..`Z`
-	- String: `A$`..`Z$`
+  - Integer: `A`..`Z`
+  - String: `A$`..`Z$`
 - Supported statements: `LET`, `PRINT`, `INPUT`, `GOTO`, `IF ... THEN`, `END`, `REM`
 - `+` is overloaded:
-	- `int + int` performs integer addition
-	- `str + str` performs string concatenation
-	- mixed string/int operands are rejected by semantic analysis
+  - `int + int` performs integer addition
+  - `str + str` performs string concatenation
+  - mixed string/int operands are rejected by semantic analysis
 - String literals use double quotes. To include a quote inside a string, use doubled quotes:
-	- Example: `"HE SAID ""HI"""` produces `HE SAID "HI"`
+  - Example: `"HE SAID ""HI"""` produces `HE SAID "HI"`
 
 ## Tests
 
