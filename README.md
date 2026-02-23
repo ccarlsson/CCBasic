@@ -59,6 +59,19 @@ Behavior summary:
 - `--emit-asm`: builds ELF and also persists assembly output.
 - `--keep-asm`: valid with default ELF mode to keep generated `.asm`.
 
+## Language Notes (Current)
+
+- Variables:
+	- Integer: `A`..`Z`
+	- String: `A$`..`Z$`
+- Supported statements: `LET`, `PRINT`, `INPUT`, `GOTO`, `IF ... THEN`, `END`, `REM`
+- `+` is overloaded:
+	- `int + int` performs integer addition
+	- `str + str` performs string concatenation
+	- mixed string/int operands are rejected by semantic analysis
+- String literals use double quotes. To include a quote inside a string, use doubled quotes:
+	- Example: `"HE SAID ""HI"""` produces `HE SAID "HI"`
+
 ## Tests
 
 ### Unit + integration
@@ -77,3 +90,8 @@ This runs:
 - `tests/print_arith.bas` → `tests/print_arith.out`
 - `tests/if_goto.bas` → `tests/if_goto.out`
 - `tests/print_multi.bas` → `tests/print_multi.out`
+- `tests/print_string.bas` → `tests/print_string.out`
+- `tests/print_escaped_quote.bas` → `tests/print_escaped_quote.out`
+- `tests/concat.bas` → `tests/concat.out`
+- `tests/input_int.bas` + `tests/input_int.in` → `tests/input_int.out`
+- `tests/input_str.bas` + `tests/input_str.in` → `tests/input_str.out`

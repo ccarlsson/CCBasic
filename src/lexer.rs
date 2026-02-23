@@ -256,7 +256,12 @@ impl Lexer {
 
 		while let Some(ch) = self.peek() {
 			if ch == '"' {
-				let (_, end) = self.advance().expect("closing quote must advance");
+				let (_, end) = self.advance().expect("quote must advance");
+				if self.peek() == Some('"') {
+					self.advance();
+					value.push('"');
+					continue;
+				}
 				return Ok(Token {
 					kind: TokenKind::StringLiteral(value),
 					span: Span {
@@ -496,6 +501,21 @@ mod tests {
 				TokenKind::LineNumber(20),
 				TokenKind::Input,
 				TokenKind::StrVariable(StrVariable(1)),
+				TokenKind::Newline,
+				TokenKind::Eof,
+			]
+		);
+	}
+
+	#[test]
+	fn tokenizes_doubled_quote_escape_in_string_literal() {
+		let values = kinds("10 PRINT \"HE SAID \"\"HI\"\"\"\n");
+		assert_eq!(
+			values,
+			vec![
+				TokenKind::LineNumber(10),
+				TokenKind::Print,
+				TokenKind::StringLiteral("HE SAID \"HI\"".to_string()),
 				TokenKind::Newline,
 				TokenKind::Eof,
 			]

@@ -17,6 +17,7 @@ fn compile_assemble_run_examples() {
         "if_goto",
         "print_multi",
         "print_string",
+        "print_escaped_quote",
         "concat",
         "input_int",
         "input_str",

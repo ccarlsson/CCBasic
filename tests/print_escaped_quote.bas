@@ -1,0 +1,2 @@
+10 PRINT "HE SAID ""HI"""
+20 END
